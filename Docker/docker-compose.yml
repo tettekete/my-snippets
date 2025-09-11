@@ -1,0 +1,38 @@
+version: '2.1'
+networks:
+  my-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/16
+volumes:
+  mysql57-vol:
+services:
+  perl:
+    image: perl:latest
+    container_name: "official-perl"
+    tty: true
+  nginx:
+    build: ./nginx
+    container_name: "nginx"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - my-network
+    # depends_on:
+    #   - app_server
+  mysql57:
+    image: mysql:5.7
+    container_name: 'mysql57'
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: '1'
+      MYSQL_DATABASE: 'my_db'
+      MYSQL_USER: 'mysqluser'
+      MYSQL_PASSWORD: '1234'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql57-vol:/var/lib/mysql
+    networks:
+      - my-network
