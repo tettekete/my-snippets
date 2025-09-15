@@ -11,7 +11,7 @@ export function xorShift32(seed: number)
 		x ^= x << 13; x >>>= 0;
 		x ^= x >>> 17; x >>>= 0;
 		x ^= x << 5;  x >>>= 0;
-		return x >>> 0;
+		return (x >>> 0) / 0xFFFFFFFF;
 	};
 }
 
