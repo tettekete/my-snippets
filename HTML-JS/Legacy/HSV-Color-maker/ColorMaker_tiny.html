@@ -1,0 +1,388 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>簡易カラーメーカー</title>
+	<link rel="stylesheet" href="./ClearFix.css" />
+	<link rel="stylesheet" href="./jquery-ui-1.10.3/themes/base/jquery-ui.css" />
+	<script type="text/javascript" src="./jquery-ui-1.10.3/jquery-1.9.1.js"></script>
+	<script type="text/javascript" src="./jquery-ui-1.10.3/ui/jquery-ui.js"></script>
+	
+<script type="text/javascript" src="HSVColorSpace.js"></script>
+<script type="text/javascript">
+<!--
+	
+	var semaphore;
+	function firstInit()
+	{
+		
+		// パレット用divのリセット
+		var resetTargets = [document.getElementById('divideByDegreeBlock')
+							,document.getElementById('circlePalette')];
+		for(var idx in resetTargets )
+		{
+			var one = resetTargets[idx];
+			while(one.childNodes.length)
+			{
+				one.removeChild(one.childNodes[0]);
+			}
+		}
+		
+		semaphore = true;
+		baseColorUpdated();
+		semaphore = false;
+	}
+	// 基本色表示用のブロックに色を適用します。
+	function baseColorUpdated()
+	{
+		var hsvColorSpace = new HSVColorSpace();
+		var inputField = document.getElementById('inputColor');
+		hsvColorSpace.initWithHexColor(inputField.value);
+		var hexCode = hsvColorSpace.rgbHexCode();
+		
+		console.log(hexCode);
+		
+		hexCode = '#' + hexCode;
+		
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');
+		baseColorBlock.style.backgroundColor = hexCode;
+		
+		$( "#hueSlider" ).slider("value",hsvColorSpace.hue() * 100.0);
+		$( "#satSlider" ).slider("value",hsvColorSpace.saturation() * 100);
+		$( "#valSlider" ).slider("value",hsvColorSpace.value() * 100);
+		
+		// サークルパレット更新
+		updateCirclePalette();
+	}
+	
+	// 相対色相角度と分割数から色見本 div を生成します。
+	function updateDivideDegreePalette()
+	{
+		// 基本カラー取得
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');// ベースカラーに使う div を取得
+		var hsvColorSpace = new HSVColorSpace();
+		hsvColorSpace.initWithHexColor(HSVColorSpace.domRGB2Hex(baseColorBlock.style.backgroundColor));
+		var baseHSV = hsvColorSpace.hsvObject();// ベースカラーを h,s,v をメンバとするオブジェクトで保持
+		
+		var degreeDiv = document.getElementById('relEndDegree');// 相対角度設定を取得
+		var divideNum = parseInt( getSelectedValue( document.getElementById('numDivideForRelDegree') ) );// 分割数を取得
+		
+		var parentDiv = document.getElementById('divideByDegreeBlock');// パレットを作成する div を取得
+		
+		// 足りない分を追加
+		while( divideNum > parentDiv.childNodes.length )
+		{
+			var oneDiv = document.createElement("div");
+			parentDiv.appendChild(oneDiv);
+		}
+		
+		// 多い分を削除
+		while( divideNum < parentDiv.childNodes.length )
+		{
+			parentDiv.removeChild(parentDiv.childNodes[ parentDiv.childNodes.length - 1]);
+		}
+		
+		// 色見本ブロックの色更新
+		for(var i=0;i<divideNum;i++)
+		{
+			var hue = baseHSV.h + (degreeDiv.value / divideNum) * i;
+			var color4here = new HSVColorSpace();
+			color4here.initWithHSV( hue
+								   ,baseHSV.s
+								   ,baseHSV.v);
+			
+			var textColor = new HSVColorSpace();
+			textColor.initWithHexColor("000000");
+			if( baseHSV.v < 0.5 )
+			{
+				var textValue = 0.6 + (0.5 - baseHSV.v);
+				textColor.setValue(textValue);
+				textColor.setupRGBfromHSVMember();
+//				console.log( textColor.description() );
+			}
+			var textColorHexCode = "#" + textColor.rgbHexCode();
+			
+			oneDiv = parentDiv.childNodes[i];
+			oneDiv.style.backgroundColor = "#" + color4here.rgbHexCode();
+			oneDiv.style.color = textColorHexCode;
+			oneDiv.innerText = "[" + String(i) + "]: #" + color4here.rgbHexCode();
+			
+		}
+		
+	}
+	
+	function getSelectedValue(selectForm)
+	{
+		for(o=0;o< selectForm.length; o++)
+		{
+			if( selectForm.options[o].selected )
+			{
+				//				selectForm.push(thisElm.options[o].value);
+				return selectForm.options[o].value;
+			}
+		}
+	}
+	
+	// 色相スライダー値変更コールバック
+	var onHueSliderValueChanged = function ()
+	{
+		var hueValueLabel = document.getElementById('hueSliderValue');
+		var hueValue = $( "#hueSlider" ).slider("value") / 100.0;
+		hueValueLabel.innerText = String( hueValue );
+		
+		if( semaphore ) return;
+		
+		// 現在の色見本用のブロックの色で初期化した HSVColorSpace を作成します。
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');// ベースカラーに使う div を取得
+		var hsvColorSpace = new HSVColorSpace();
+		
+		// カレントカラーで初期化
+		hsvColorSpace.initWithHexColor(HSVColorSpace.domRGB2Hex(baseColorBlock.style.backgroundColor));
+		hsvColorSpace.setHue( hueValue );//色相を変更
+		hsvColorSpace.setupRGBfromHSVMember();
+		
+		// 16進コードテキストフィールドを更新
+		uodateHexCodeFromHSVColorSpace(hsvColorSpace);
+		
+		// パレット更新コール
+		updateDivideDegreePalette();
+	}
+	
+	// 彩度スライダー値変更コールバック
+	var onSaturationSliderValueChanged = function()
+	{
+		var satValueLabel = document.getElementById('satSliderValue');
+		var satValue = $( "#satSlider" ).slider("value");
+		satValueLabel.innerText = String( satValue );
+		
+		if( semaphore ) return;
+		
+		// 現在の色見本用のブロックの色で初期化した HSVColorSpace を作成します。
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');// ベースカラーに使う div を取得
+		var hsvColorSpace = new HSVColorSpace();
+		
+		// カレントカラーで初期化
+		hsvColorSpace.initWithHexColor(HSVColorSpace.domRGB2Hex(baseColorBlock.style.backgroundColor));
+		hsvColorSpace.setHue($( "#hueSlider" ).slider("value") / 100.0);// 色相は失われる場合があるのでスライダーからとってくる。
+		hsvColorSpace.setSaturation(satValue/100);// 彩度をセット
+		hsvColorSpace.setupRGBfromHSVMember();
+		
+		// 16進コードテキストフィールドを更新
+		uodateHexCodeFromHSVColorSpace(hsvColorSpace);
+		
+		// パレット更新コール
+		updateDivideDegreePalette();
+	}
+	
+	// 明度スライダー値変更時コールバック
+	var onValueSliderValueChanged = function()
+	{
+		var valValueLabel = document.getElementById('valSliderValue');
+		var valValue = $( "#valSlider" ).slider("value");
+		valValueLabel.innerText = String( valValue );
+		
+		if( semaphore ) return;
+		
+		// 現在の色見本用のブロックの色で初期化した HSVColorSpace を作成します。
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');// ベースカラーに使う div を取得
+		var hsvColorSpace = new HSVColorSpace();
+		
+		// カレントカラーで初期化
+		hsvColorSpace.initWithHexColor(HSVColorSpace.domRGB2Hex(baseColorBlock.style.backgroundColor));
+		hsvColorSpace.setHue($( "#hueSlider" ).slider("value") / 100.0);// 色相は失われる場合があるのでスライダーからとってくる。
+		hsvColorSpace.setSaturation($( "#satSlider" ).slider("value")/100);// 明度0||100で彩度も失われるためスライダーからとってくる。
+		hsvColorSpace.setValue(valValue/100);// 明度
+		hsvColorSpace.setupRGBfromHSVMember();
+		
+		// 16進コードテキストフィールドを更新
+		uodateHexCodeFromHSVColorSpace(hsvColorSpace);
+		
+		// パレット更新コール
+		updateDivideDegreePalette();
+	}
+	
+	// 生成した HSVColorSpace オブジェクトからHEXコード入力フィールドの文字列とブロックカラーを更新します。
+	function uodateHexCodeFromHSVColorSpace( hsvColorSpace )
+	{
+		var baseColorBlock = document.getElementById('baseColorSampleBlock');// ベースカラーに使う div を取得
+		var hexColorCode = "#" + hsvColorSpace.rgbHexCode();
+		baseColorBlock.style.backgroundColor = hexColorCode;// 変更後の色を適用
+		var baseColorInput = document.getElementById("inputColor");
+		baseColorInput.value = hexColorCode;
+		
+	}
+	
+	// 試しにサークルパレット（色相の角度通りに炎上に div ブロックを配置）してみる。
+	function updateCirclePalette()
+	{
+		var parentDiv = document.getElementById("circlePalette");
+		
+		var degreeDiv = document.getElementById('relEndDegree');// 相対角度設定を取得
+		var divideNum = parseInt( getSelectedValue( document.getElementById('numDivideForRelDegree') ) );// 分割数を取得
+		
+		// 足りない分を追加
+		while( divideNum > parentDiv.childNodes.length )
+		{
+			var oneDiv = document.createElement("div");
+			parentDiv.appendChild(oneDiv);
+		}
+		
+		// 多い分を削除
+		while( divideNum < parentDiv.childNodes.length )
+		{
+			parentDiv.removeChild(parentDiv.childNodes[ parentDiv.childNodes.length - 1]);
+		}
+		
+		for(var i=0;i<divideNum;i++)
+		{
+			oneDiv = parentDiv.childNodes[i];
+			oneDiv.style.backgroundColor = "#00ff00";
+			oneDiv.style.width	= "20px";
+			oneDiv.style.height = "20px";
+		}
+		
+	}
+	
+	// jQuery-ui-slider
+	$(function() {
+	  $( "#hueSlider" ).slider();
+	  $( "#hueSlider" ).slider( "option", "min", 0 );
+	  $( "#hueSlider" ).slider( "option", "max", 36000 );
+	  
+	  $( "#hueSlider" ).slider(
+							   {
+							   change: onHueSliderValueChanged
+							   ,slide: onHueSliderValueChanged
+							   });
+	  
+	  $( "#satSlider" ).slider();
+	  $( "#satSlider" ).slider( "option", "min", 0 );
+	  $( "#satSlider" ).slider( "option", "max", 100 );
+	  
+	  $( "#satSlider" ).slider(
+							   {
+							   change: onSaturationSliderValueChanged
+							   ,slide: onSaturationSliderValueChanged
+							   });
+	  
+	  $( "#valSlider" ).slider();
+	  $( "#valSlider" ).slider( "option", "min", 0 );
+	  $( "#valSlider" ).slider( "option", "max", 100 );
+	  
+	  $( "#valSlider" ).slider(
+							   {
+							   change: onValueSliderValueChanged
+							   ,slide: onValueSliderValueChanged
+							   });
+	  });
+	//-->
+</script>
+<style type="text/css">
+#baseColorSampleBlock {
+	background-color: #FFF;
+	height: 100px;
+	width: 400px;
+}
+	#hueSliderContainer
+	{
+		margin-top: 4pt;
+		padding-left: 12pt;
+	}
+	
+	#hueSlider ,#satSlider,#valSlider {
+		width:360px;
+		height:6px;
+		font-size: 9px;
+		float: left;
+		
+	}
+	
+	#hueGradient
+	{
+		width:360px;
+		height:20px;
+		margin-bottom: 12pt;
+		/* 色相グラデーション */
+		background: -moz-linear-gradient(left, #f00
+		, #ff0 13.88%
+		, #0f0 33.33%
+		, #0FF 50%
+		, #00F 66.66%
+		, #f0f 83.33%
+		, #f00);
+		background: -webkit-gradient(linear, left top, right top, from(#f00)
+		, color-stop(0.13888888888889, #ff0)
+		, color-stop(0.33333333333333, #0f0)
+		, color-stop(0.5, #0ff)
+		, color-stop(0.66666666666667, #00f)
+		, color-stop(0.83333333333333, #f0f), to(#f00));
+
+	}
+	
+	#hueSliderValueBlock
+	,#satSliderValueBlock
+	,#valSliderValueBlock
+	{
+		float: left;
+		margin-left: 12px;
+	}
+</style>
+</head>
+
+<body onload="firstInit()">
+<form id="form1" name="form1" method="post" action="" onSubmit="return false">
+  <label for="inputColor">基本カラー</label>
+  <input type="text" name="inputColor" id="inputColor" value="aabbcc" />
+  <input type="button" name="button" id="button" value="セット" onClick="baseColorUpdated()" />
+</form>
+
+	<div id="hueSliderContainer">
+		
+		<div id="hueGradient"></div>
+		<div class="cf">
+			<div id="hueSlider">
+			</div>
+			<div id="hueSliderValueBlock">H:<span id="hueSliderValue">--</span>°</div>
+		</div>
+		<div class="cf">
+			<div id="satSlider"></div>
+			<div id="satSliderValueBlock">S:<span id="satSliderValue">--</span></div>
+		</div>
+		<div class="cf">
+			<div id="valSlider"></div>
+			<div id="valSliderValueBlock">V:<span id="valSliderValue">--</span></div>
+		</div>
+	</div>
+	
+<div class="baseColorSampleBlock" id="baseColorSampleBlock"></div>
+<p>
+  <label for="relEndDegree"></label>
+</p>
+<form id="form2" name="form2" method="post" action="" onSubmit="updateDivideDegreePalette();return false;">
+  <label for="relEndDegree">終了角度（相対）</label>
+  <input name="relEndDegree" type="text" id="relEndDegree" value="360" size="8" maxlength="4" />
+  度
+  <label for="numDivideForRelDegree">分割数</label>
+  <select name="numDivideForRelDegree" id="numDivideForRelDegree">
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+	   <option value="5">5</option>
+	  <option value="6">6</option>
+	  <option value="7">7</option>
+	  <option value="8" selected="selected">8</option>
+	  <option value="9">9</option>
+	  <option value="10">10</option>
+	  <option value="11">11</option>
+	  <option value="12">12</option>
+  </select>
+  <input type="button" name="button2" id="button2" value="作成" onClick="updateDivideDegreePalette()" />
+</form>
+<div id="divideByDegreeBlock">
+  
+</div>
+	<div id="circlePalette">
+	</div>
+<p>&nbsp; </p>
+</body>
+</html>
