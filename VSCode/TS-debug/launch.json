@@ -16,6 +16,24 @@
             "program": "${workspaceFolder}/src/index.ts",
             // "program": "${file}",
             "console": "internalConsole"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Jest（現在のテストファイル）",
+            "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+            "args": [
+                "--runInBand",
+                "--config",
+                "${workspaceFolder}/jest.config.js",
+                "--runTestsByPath",
+                "${relativeFile}"
+            ],
+            "env": {
+                "NODE_OPTIONS": "--experimental-vm-modules"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }
